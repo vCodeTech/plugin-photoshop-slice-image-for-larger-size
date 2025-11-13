@@ -1,0 +1,7 @@
+body{font-family: Arial, Helvetica, sans-serif;margin:8px;color:#111}
+.container{width:360px}
+.row{display:flex;align-items:center;margin:8px 0}
+.row label{width:110px}
+.row input[type=number]{flex:1;padding:6px}
+#log{height:160px;overflow:auto;background:#f4f4f4;padding:8px}
+button{padding:8px 12px;border-radius:6px}
