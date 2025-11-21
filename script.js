@@ -8,16 +8,26 @@ let allPlans = [];
 let selectedPlan = null;
 const decalWidths = [914, 1070, 1270, 1520];
 
+// Grid slicing variables
+let gridCalculation = null;
+
 // Khởi tạo
 document.addEventListener("DOMContentLoaded", async () => {
     await loadDocumentInfo();
 
     document.getElementById("calculateBtn").addEventListener("click", calculatePlans);
     document.getElementById("sliceBtn").addEventListener("click", executeSlice);
+    document.getElementById("gridSliceBtn").addEventListener("click", executeGridSlice);
+
+    // Grid inputs event listeners - use 'change' for Spectrum components
+    document.getElementById("gridCols").addEventListener("change", updateGridCalculation);
+    document.getElementById("gridRows").addEventListener("change", updateGridCalculation);
+    document.getElementById("overlap").addEventListener("change", updateGridCalculation);
 
     // Theo dõi document changes
     app.eventNotifier.addNotifier("select", async () => {
         await loadDocumentInfo();
+        updateGridCalculation();
     });
 });
 
@@ -285,68 +295,62 @@ async function executeSlice() {
 
 // Slice và save một strip
 async function sliceAndSave(x1, x2, heightPx, targetWidthPx, dpi, docMode, folder, fileName) {
-    // 1. Select area
+    console.log(`[DEBUG] Slicing: x1=${x1}, x2=${x2}, height=${heightPx}, targetWidth=${targetWidthPx}`);
+
+    // NEW APPROACH: Duplicate document then crop
+    // This is more reliable than copy/paste for TIFF files
+
+    // 1. Duplicate the original document
     await batchPlay([{
-        _obj: "set",
-        _target: [{ _ref: "channel", _enum: "channel", _value: "selection" }],
+        _obj: "duplicate",
+        _target: [{ _ref: "document", _enum: "ordinal", _value: "targetEnum" }],
+        name: fileName
+    }], {});
+    console.log("[DEBUG] Document duplicated");
+
+    const newDoc = app.activeDocument;
+    console.log(`[DEBUG] Working on duplicated document: ${newDoc.name}`);
+
+    // 2. Flatten the duplicate (in case it has layers)
+    try {
+        await batchPlay([{ _obj: "flattenImage" }], {});
+        console.log("[DEBUG] Duplicate flattened");
+    } catch (e) {
+        console.log("[DEBUG] Already flat or flatten failed (OK)");
+    }
+
+    // 3. Crop to the desired area
+    await batchPlay([{
+        _obj: "crop",
         to: {
             _obj: "rectangle",
             top: { _unit: "pixelsUnit", _value: 0 },
             left: { _unit: "pixelsUnit", _value: x1 },
             bottom: { _unit: "pixelsUnit", _value: heightPx },
             right: { _unit: "pixelsUnit", _value: x2 }
-        }
+        },
+        angle: { _unit: "angleUnit", _value: 0 },
+        delete: true,
+        cropAspectRatioModeKey: { _enum: "cropAspectRatioModeClass", _value: "pureAspectRatio" }
     }], {});
+    console.log(`[DEBUG] Cropped to x1=${x1}, x2=${x2}`);
 
-    // 2. Copy Merged (to get all layers)
-    await batchPlay([{
-        _obj: "copyEvent",
-        merged: true
-    }], {});
+    // 4. Resize canvas if needed (to ensure exact target width)
+    const currentWidth = newDoc.width;
+    console.log(`[DEBUG] Current width after crop: ${currentWidth}, target: ${targetWidthPx}`);
 
-    // 3. Create New Document with original color mode
-    const { constants } = require("photoshop");
-
-    // Map document mode to NewDocumentMode constant
-    let newDocMode = constants.NewDocumentMode.RGB; // Default to RGB
-    switch (docMode) {
-        case constants.DocumentMode.CMYK:
-            newDocMode = constants.NewDocumentMode.CMYK;
-            break;
-        case constants.DocumentMode.RGB:
-            newDocMode = constants.NewDocumentMode.RGB;
-            break;
-        case constants.DocumentMode.GRAYSCALE:
-            newDocMode = constants.NewDocumentMode.GRAYSCALE;
-            break;
-        case constants.DocumentMode.LAB:
-            newDocMode = constants.NewDocumentMode.LAB;
-            break;
-        case constants.DocumentMode.BITMAP:
-            newDocMode = constants.NewDocumentMode.BITMAP;
-            break;
+    if (Math.abs(currentWidth - targetWidthPx) > 1) {
+        await batchPlay([{
+            _obj: "canvasSize",
+            width: { _unit: "pixelsUnit", _value: targetWidthPx },
+            height: { _unit: "pixelsUnit", _value: heightPx },
+            horizontal: { _enum: "horizontalLocation", _value: "left" },
+            vertical: { _enum: "verticalLocation", _value: "top" }
+        }], {});
+        console.log(`[DEBUG] Canvas resized to ${targetWidthPx}x${heightPx}`);
     }
 
-    await app.documents.add({
-        width: targetWidthPx,
-        height: heightPx,
-        resolution: dpi,
-        mode: newDocMode,
-        fill: constants.DocumentFill.TRANSPARENT
-    });
-
-    const newDoc = app.activeDocument;
-
-    // 4. Paste
-    await batchPlay([{
-        _obj: "paste",
-        antiAlias: { _enum: "antiAliasType", _value: "antiAliasNone" }
-    }], {});
-
-    // 5. Flatten (optional, but good for TIFF)
-    await batchPlay([{ _obj: "flattenImage" }], {});
-
-    // 6. Save as TIFF
+    // 5. Save as TIFF
     const file = await folder.createFile(`${fileName}.tif`, { overwrite: true });
     const token = await fs.createSessionToken(file);
 
@@ -360,22 +364,19 @@ async function sliceAndSave(x1, x2, heightPx, targetWidthPx, dpi, docMode, folde
         in: { _path: token, _kind: "local" },
         copy: true
     }], {});
+    console.log(`[DEBUG] File saved: ${fileName}.tif`);
 
-    // 7. Close new doc
+    // 6. Close the duplicated doc
     await newDoc.closeWithoutSaving();
+    console.log("[DEBUG] Duplicate closed");
 
-    // 8. Switch back to original doc and deselect
+    // 7. Switch back to original doc
     if (currentDoc) {
         await batchPlay([{
             _obj: "select",
             _target: [{ _ref: "document", _name: currentDoc.name }]
         }], {});
-
-        await batchPlay([{
-            _obj: "set",
-            _target: [{ _ref: "channel", _enum: "channel", _value: "selection" }],
-            to: { _enum: "ordinal", _value: "none" }
-        }], {});
+        console.log("[DEBUG] Switched back to original document");
     }
 }
 
@@ -384,4 +385,196 @@ function showStatus(message, type = "") {
     const status = document.getElementById("status");
     status.textContent = message;
     status.className = `status ${type}`;
+}
+
+// Grid slicing functions
+function updateGridCalculation() {
+    if (!currentDoc) {
+        document.getElementById("gridResult").innerHTML = '<div class="result-item">Vui lòng mở một file trong Photoshop</div>';
+        document.getElementById("gridSliceBtn").style.display = "none";
+        return;
+    }
+
+    const cols = parseInt(document.getElementById("gridCols").value);
+    const rows = parseInt(document.getElementById("gridRows").value);
+    const overlap = parseFloat(document.getElementById("overlap").value);
+
+    if (isNaN(cols) || isNaN(rows) || cols < 1 || rows < 1) {
+        document.getElementById("gridResult").innerHTML = '<div class="result-item">Nhập số cột và dòng hợp lệ</div>';
+        document.getElementById("gridSliceBtn").style.display = "none";
+        return;
+    }
+
+    const widthMM = convertToMM(currentDoc.width, currentDoc.resolution);
+    const heightMM = convertToMM(currentDoc.height, currentDoc.resolution);
+
+    // Calculate piece size with overlap
+    const pieceWidth = (widthMM + (cols - 1) * overlap) / cols;
+    const pieceHeight = (heightMM + (rows - 1) * overlap) / rows;
+    const totalPieces = cols * rows;
+
+    gridCalculation = {
+        cols: cols,
+        rows: rows,
+        pieceWidth: pieceWidth,
+        pieceHeight: pieceHeight,
+        overlap: overlap
+    };
+
+    document.getElementById("gridResult").innerHTML = `
+        <div class="result-item"><strong>Kích thước mỗi phần:</strong> ${pieceWidth.toFixed(1)} × ${pieceHeight.toFixed(1)} mm</div>
+        <div class="result-item"><strong>Số cột:</strong> ${cols} | <strong>Số dòng:</strong> ${rows}</div>
+        <div class="result-item"><strong>Tổng số phần:</strong> ${totalPieces}</div>
+        <div class="result-item"><strong>Overlap:</strong> ${overlap} mm</div>
+    `;
+    document.getElementById("gridSliceBtn").style.display = "block";
+}
+
+async function executeGridSlice() {
+    if (!currentDoc || !gridCalculation) {
+        showStatus("Vui lòng nhập số cột và dòng trước!", "error");
+        return;
+    }
+
+    try {
+        showStatus("Đang cắt theo lưới...", "");
+
+        await executeAsModal(async () => {
+            const folder = await fs.getFolder();
+            if (!folder) {
+                showStatus("Đã hủy chọn thư mục", "error");
+                return;
+            }
+
+            const originalName = currentDoc.name.replace(/\.[^.]+$/, "");
+            const dpi = currentDoc.resolution;
+            const docMode = currentDoc.mode;
+            const docWidthPx = currentDoc.width;
+            const docHeightPx = currentDoc.height;
+
+            const { cols, rows, pieceWidth, pieceHeight, overlap } = gridCalculation;
+            const overlapPx = convertToPx(overlap, dpi);
+            const pieceWidthPx = convertToPx(pieceWidth, dpi);
+            const pieceHeightPx = convertToPx(pieceHeight, dpi);
+
+            let pieceCount = 0;
+
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    pieceCount++;
+
+                    // Calculate coordinates
+                    const x1 = col * (pieceWidthPx - overlapPx);
+                    let x2 = x1 + pieceWidthPx;
+                    if (x2 > docWidthPx) x2 = docWidthPx;
+
+                    const y1 = row * (pieceHeightPx - overlapPx);
+                    let y2 = y1 + pieceHeightPx;
+                    if (y2 > docHeightPx) y2 = docHeightPx;
+
+                    await sliceAndSaveGrid(
+                        x1, y1, x2, y2,
+                        pieceWidthPx, pieceHeightPx,
+                        dpi,
+                        docMode,
+                        folder,
+                        `${originalName}_R${row + 1}C${col + 1}_${pieceWidth.toFixed(0)}x${pieceHeight.toFixed(0)}mm`
+                    );
+                }
+            }
+
+            showStatus(`✅ Đã cắt xong ${pieceCount} phần!`, "success");
+        }, { commandName: "Grid Slice Tool Pro" });
+
+    } catch (error) {
+        showStatus(`Lỗi: ${error.message}`, "error");
+        console.error(error);
+    }
+}
+
+// Slice và save một phần grid
+async function sliceAndSaveGrid(x1, y1, x2, y2, targetWidthPx, targetHeightPx, dpi, docMode, folder, fileName) {
+    console.log(`[DEBUG] Grid slicing: x1=${x1}, y1=${y1}, x2=${x2}, y2=${y2}, targetW=${targetWidthPx}, targetH=${targetHeightPx}`);
+
+    // NEW APPROACH: Duplicate document then crop (same as vertical slicing)
+
+    // 1. Duplicate the original document
+    await batchPlay([{
+        _obj: "duplicate",
+        _target: [{ _ref: "document", _enum: "ordinal", _value: "targetEnum" }],
+        name: fileName
+    }], {});
+    console.log("[DEBUG] Grid document duplicated");
+
+    const newDoc = app.activeDocument;
+    console.log(`[DEBUG] Grid working on duplicated document: ${newDoc.name}`);
+
+    // 2. Flatten the duplicate
+    try {
+        await batchPlay([{ _obj: "flattenImage" }], {});
+        console.log("[DEBUG] Grid duplicate flattened");
+    } catch (e) {
+        console.log("[DEBUG] Grid already flat or flatten failed (OK)");
+    }
+
+    // 3. Crop to the desired area
+    await batchPlay([{
+        _obj: "crop",
+        to: {
+            _obj: "rectangle",
+            top: { _unit: "pixelsUnit", _value: y1 },
+            left: { _unit: "pixelsUnit", _value: x1 },
+            bottom: { _unit: "pixelsUnit", _value: y2 },
+            right: { _unit: "pixelsUnit", _value: x2 }
+        },
+        angle: { _unit: "angleUnit", _value: 0 },
+        delete: true,
+        cropAspectRatioModeKey: { _enum: "cropAspectRatioModeClass", _value: "pureAspectRatio" }
+    }], {});
+    console.log(`[DEBUG] Grid cropped to x1=${x1}, y1=${y1}, x2=${x2}, y2=${y2}`);
+
+    // 4. Resize canvas if needed
+    const currentWidth = newDoc.width;
+    const currentHeight = newDoc.height;
+    console.log(`[DEBUG] Grid current size after crop: ${currentWidth}x${currentHeight}, target: ${targetWidthPx}x${targetHeightPx}`);
+
+    if (Math.abs(currentWidth - targetWidthPx) > 1 || Math.abs(currentHeight - targetHeightPx) > 1) {
+        await batchPlay([{
+            _obj: "canvasSize",
+            width: { _unit: "pixelsUnit", _value: targetWidthPx },
+            height: { _unit: "pixelsUnit", _value: targetHeightPx },
+            horizontal: { _enum: "horizontalLocation", _value: "left" },
+            vertical: { _enum: "verticalLocation", _value: "top" }
+        }], {});
+        console.log(`[DEBUG] Grid canvas resized to ${targetWidthPx}x${targetHeightPx}`);
+    }
+
+    // 5. Save as TIFF
+    const file = await folder.createFile(`${fileName}.tif`, { overwrite: true });
+    const token = await fs.createSessionToken(file);
+
+    await batchPlay([{
+        _obj: "save",
+        as: {
+            _obj: "TIFF",
+            byteOrder: { _enum: "platform", _value: "IBMPC" },
+            imageCompression: { _enum: "TIFFEncoding", _value: "none" }
+        },
+        in: { _path: token, _kind: "local" },
+        copy: true
+    }], {});
+    console.log(`[DEBUG] Grid file saved: ${fileName}.tif`);
+
+    // 6. Close the duplicated doc
+    await newDoc.closeWithoutSaving();
+    console.log("[DEBUG] Grid duplicate closed");
+
+    // 7. Switch back to original doc
+    if (currentDoc) {
+        await batchPlay([{
+            _obj: "select",
+            _target: [{ _ref: "document", _name: currentDoc.name }]
+        }], {});
+        console.log("[DEBUG] Grid switched back to original document");
+    }
 }

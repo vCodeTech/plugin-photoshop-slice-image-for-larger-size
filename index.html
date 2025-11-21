@@ -26,6 +26,23 @@
                 <input type="number" id="margin" value="50" min="0" max="200">
             </div>
             <button class="btn-secondary full-width" id="calculateBtn">🔄 Tính toán phương án</button>
+
+            <div style="width: 100%; height: 1px; background: #3a3a3a; margin: 8px 0;"></div>
+            <div style="width: 100%; font-weight: 600; margin-bottom: 4px; color: #667eea;">Cắt theo lưới (Grid)</div>
+
+            <div class="setting-row">
+                <label>Số cột (Cols):</label>
+                <input type="number" id="gridCols" value="2" min="1" max="50">
+            </div>
+            <div class="setting-row">
+                <label>Số dòng (Rows):</label>
+                <input type="number" id="gridRows" value="2" min="1" max="50">
+            </div>
+
+            <div id="gridResult" style="width: 100%; margin-top: 4px; font-size: 10px; color: #aaa;"></div>
+
+            <button class="btn-primary full-width" id="gridSliceBtn" style="display: none; margin-top: 4px;">✂️ Cắt theo
+                lưới</button>
         </div>
 
         <div class="table-container" id="tableContainer" style="display: none;">

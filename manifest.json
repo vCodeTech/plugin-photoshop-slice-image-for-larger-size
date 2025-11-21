@@ -17,12 +17,12 @@
         "default": "Slice Tool Pro"
       },
       "minimumSize": {
-        "width": 320,
-        "height": 500
+        "width": 350,
+        "height": 800
       },
       "preferredDockedSize": {
-        "width": 350,
-        "height": 700
+        "width": 400,
+        "height": 800
       }
     }
   ],
