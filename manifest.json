@@ -1,27 +1,51 @@
 {
-  "id": "slices.tool.nguyenho",
-  "name": "Slices Tool",
+  "id": "com.slicetool.pro",
+  "name": "Slice Tool Pro",
   "version": "1.0.0",
   "main": "index.html",
+  "controller": "script.js",
+  "manifestVersion": 5,
   "host": {
     "app": "PS",
-    "minVersion": "26.10.0"
+    "minVersion": "23.0.0"
   },
-  "manifestVersion": 5,
   "entrypoints": [
     {
-      "type": "command",
-      "id": "showAlert",
-      "label": "Show alert"
+      "type": "panel",
+      "id": "slicetool",
+      "label": {
+        "default": "Slice Tool Pro"
+      },
+      "minimumSize": {
+        "width": 320,
+        "height": 400
+      },
+      "preferredDockedSize": {
+        "width": 350,
+        "height": 600
+      }
+    }
+  ],
+  "requiredPermissions": {
+    "webview": {},
+    "launchProcess": {},
+    "allowCodeGenerationFromStrings": true,
+    "localFileSystem": "fullAccess"
+  },
+  "icons": [
+    {
+      "width": 23,
+      "height": 23,
+      "path": "icons/icon.png",
+      "scale": 1,
+      "theme": "all"
     },
     {
-      "type": "panel",
-      "id": "vanilla",
-      "label": { "default": "Starter Panel" },
-      "minimumSize": { "width": 230, "height": 200 },
-      "maximumSize": { "width": 2000, "height": 2000 },
-      "preferredDockedSize": { "width": 230, "height": 300 },
-      "preferredFloatingSize": { "width": 230, "height": 300 }
+      "width": 46,
+      "height": 46,
+      "path": "icons/icon@2x.png",
+      "scale": 2,
+      "theme": "all"
     }
   ]
 }
