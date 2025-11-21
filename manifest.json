@@ -23,7 +23,59 @@
       "preferredDockedSize": {
         "width": 400,
         "height": 800
-      }
+      },
+      "icons": [
+        {
+          "width": 23,
+          "height": 23,
+          "path": "icons/light@1x.png",
+          "scale": [
+            1
+          ],
+          "theme": [
+            "darkest",
+            "dark",
+            "medium"
+          ]
+        },
+        {
+          "width": 23,
+          "height": 23,
+          "path": "icons/dark@1x.png",
+          "scale": [
+            1
+          ],
+          "theme": [
+            "lightest",
+            "light"
+          ]
+        },
+        {
+          "width": 46,
+          "height": 46,
+          "path": "icons/light@2x.png",
+          "scale": [
+            2
+          ],
+          "theme": [
+            "darkest",
+            "dark",
+            "medium"
+          ]
+        },
+        {
+          "width": 46,
+          "height": 46,
+          "path": "icons/dark@2x.png",
+          "scale": [
+            2
+          ],
+          "theme": [
+            "lightest",
+            "light"
+          ]
+        }
+      ]
     }
   ],
   "requiredPermissions": {
@@ -36,14 +88,14 @@
     {
       "width": 23,
       "height": 23,
-      "path": "icons/icon.png",
+      "path": "icons/dark@1x.png",
       "scale": 1,
       "theme": "all"
     },
     {
       "width": 46,
       "height": 46,
-      "path": "icons/icon@2x.png",
+      "path": "icons/dark@2x.png",
       "scale": 2,
       "theme": "all"
     }

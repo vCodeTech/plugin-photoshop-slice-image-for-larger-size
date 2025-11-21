@@ -83,6 +83,8 @@ function makeOptimizePlan(inputWidth, overlap, margin, inputHeight) {
         }
         if (n) {
             const totalArea = n * s * inputHeight;
+            // Tính diện tích bỏ trống: phần không in được trên decal
+            const wastedArea = n * (r - s) * inputHeight;
             plans.push({
                 mode: "optimize",
                 r: r,
@@ -90,7 +92,8 @@ function makeOptimizePlan(inputWidth, overlap, margin, inputHeight) {
                 n: n,
                 cuts: n - 1,
                 s: s,
-                area: totalArea
+                area: totalArea,
+                wastedArea: wastedArea
             });
         }
     }
@@ -120,8 +123,11 @@ function makeFillPlan(inputWidth, overlap, margin, inputHeight) {
         }
 
         let totalArea = 0;
+        let wastedArea = 0;
         for (const w of strips) {
             totalArea += w * inputHeight;
+            // Tính diện tích bỏ trống cho mỗi strip
+            wastedArea += (r - w) * inputHeight;
         }
 
         plans.push({
@@ -131,7 +137,8 @@ function makeFillPlan(inputWidth, overlap, margin, inputHeight) {
             strips: strips,
             cuts: strips.length - 1,
             n: strips.length,
-            area: totalArea
+            area: totalArea,
+            wastedArea: wastedArea
         });
     }
 
@@ -162,9 +169,10 @@ async function calculatePlans() {
         const fillPlans = makeFillPlan(widthMM, overlap, margin, heightMM);
 
         allPlans = [...optimizePlans, ...fillPlans];
+        // Sắp xếp: ưu tiên số nhát cắt ít, sau đó diện tích lãng phí ít
         allPlans.sort((a, b) => {
             if (a.cuts !== b.cuts) return a.cuts - b.cuts;
-            return a.r - b.r;
+            return a.wastedArea - b.wastedArea;
         });
 
         // Render bảng
@@ -178,8 +186,8 @@ async function calculatePlans() {
 
         allPlans.forEach((plan, index) => {
             const stt = index + 1;
-            const saved = originalArea - plan.area;
-            const savedPercent = (saved / originalArea * 100).toFixed(1);
+            const wastedM2 = (plan.wastedArea / 1000000).toFixed(3);
+            const wastedPercent = ((plan.wastedArea / (plan.area + plan.wastedArea)) * 100).toFixed(1);
 
             const row = document.createElement("tr");
             if (index === 0) row.classList.add("selected");
@@ -190,7 +198,7 @@ async function calculatePlans() {
                 <td>${plan.r} mm</td>
                 <td>${plan.cuts + 1}</td>
                 <td>${(plan.area / 1000000).toFixed(3)} m²</td>
-                <td class="savings">↓ ${savedPercent}%</td>
+                <td class="savings">🗑️ ${wastedM2} m² (${wastedPercent}%)</td>
             `;
 
             row.addEventListener("click", () => {
