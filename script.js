@@ -178,7 +178,7 @@ async function calculatePlans() {
                 <td><strong>${stt}</strong> ${index === 0 ? '<span class="best-label">TỐT NHẤT</span>' : ''}</td>
                 <td><span class="badge badge-${plan.mode}">${plan.mode}</span></td>
                 <td>${plan.r} mm</td>
-                <td>${plan.cuts}</td>
+                <td>${plan.cuts + 1}</td>
                 <td>${(plan.area / 1000000).toFixed(3)} m²</td>
                 <td class="savings">↓ ${savedPercent}%</td>
             `;
@@ -225,6 +225,7 @@ async function executeSlice() {
 
             const originalName = currentDoc.name.replace(/\.[^.]+$/, "");
             const dpi = currentDoc.resolution;
+            const docMode = currentDoc.mode; // Get original color mode
             const widthMM = convertToMM(currentDoc.width, dpi);
             const heightMM = convertToMM(currentDoc.height, dpi);
             const overlapPx = convertToPx(overlap, dpi);
@@ -247,6 +248,7 @@ async function executeSlice() {
                         x1, x2, docHeightPx,
                         stripWidthPx, // Target width for new doc
                         dpi,
+                        docMode, // Pass color mode
                         folder,
                         `${originalName}_${sliceNum}_${w.toFixed(0)}mm`
                     );
@@ -265,6 +267,7 @@ async function executeSlice() {
                         x1, x2, docHeightPx,
                         stripWidthPx,
                         dpi,
+                        docMode, // Pass color mode
                         folder,
                         `${originalName}_${sliceNum}_${plan.s.toFixed(0)}mm`
                     );
@@ -281,7 +284,7 @@ async function executeSlice() {
 }
 
 // Slice và save một strip
-async function sliceAndSave(x1, x2, heightPx, targetWidthPx, dpi, folder, fileName) {
+async function sliceAndSave(x1, x2, heightPx, targetWidthPx, dpi, docMode, folder, fileName) {
     // 1. Select area
     await batchPlay([{
         _obj: "set",
@@ -301,13 +304,34 @@ async function sliceAndSave(x1, x2, heightPx, targetWidthPx, dpi, folder, fileNa
         merged: true
     }], {});
 
-    // 3. Create New Document
+    // 3. Create New Document with original color mode
     const { constants } = require("photoshop");
+
+    // Map document mode to NewDocumentMode constant
+    let newDocMode = constants.NewDocumentMode.RGB; // Default to RGB
+    switch (docMode) {
+        case constants.DocumentMode.CMYK:
+            newDocMode = constants.NewDocumentMode.CMYK;
+            break;
+        case constants.DocumentMode.RGB:
+            newDocMode = constants.NewDocumentMode.RGB;
+            break;
+        case constants.DocumentMode.GRAYSCALE:
+            newDocMode = constants.NewDocumentMode.GRAYSCALE;
+            break;
+        case constants.DocumentMode.LAB:
+            newDocMode = constants.NewDocumentMode.LAB;
+            break;
+        case constants.DocumentMode.BITMAP:
+            newDocMode = constants.NewDocumentMode.BITMAP;
+            break;
+    }
+
     await app.documents.add({
         width: targetWidthPx,
         height: heightPx,
         resolution: dpi,
-        mode: constants.NewDocumentMode.RGB,
+        mode: newDocMode,
         fill: constants.DocumentFill.TRANSPARENT
     });
 

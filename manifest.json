@@ -18,11 +18,11 @@
       },
       "minimumSize": {
         "width": 320,
-        "height": 400
+        "height": 500
       },
       "preferredDockedSize": {
         "width": 350,
-        "height": 600
+        "height": 700
       }
     }
   ],

@@ -26,6 +26,10 @@ body {
     overflow: hidden;
 }
 
+.planTable {
+    height: auto;
+}
+
 .header {
     background: transparent;
     padding: 0 0 8px 0;
@@ -112,8 +116,9 @@ body {
     margin-bottom: 8px;
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
     border: 1px solid #3a3a3a;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 table {
@@ -126,16 +131,18 @@ thead {
     top: 0;
     background: #2a2a2a;
     z-index: 10;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 th {
     text-align: left;
-    padding: 6px 4px;
-    border-bottom: 1px solid #667eea;
+    padding: 8px 4px;
+    border-bottom: 2px solid #667eea;
     font-weight: 600;
     font-size: 9px;
     text-transform: uppercase;
     white-space: nowrap;
+    background: #2a2a2a;
 }
 
 td {
